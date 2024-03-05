@@ -1,34 +1,64 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	_ "github.com/go-sql-driver/mysql"
 )
 
-// DBConn 是一个全局数据库连接实例
-var DBConn *gorm.DB
+// DB 是全局数据库连接实例
+var DB *sql.DB
 
-// InitDB 初始化数据库连接
-func InitDB() {
+// 初始化数据库连接
+func init() {
 	var err error
-	// 请根据你的数据库配置调整DSN（数据源名称）
-	dsn := "username:password@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
-	DBConn, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	DB, err = sql.Open("mysql", "用户名:密码@tcp(数据库地址:端口)/数据库名?parseTime=true")
 	if err != nil {
-		log.Fatalf("Error connecting to database: %v", err)
+		log.Fatal(err)
 	}
 
-	fmt.Println("Database connection successfully established")
+	// 测试数据库连接
+	if err := DB.Ping(); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("数据库连接成功！")
 }
 
-// CloseDB 关闭数据库连接
-func CloseDB() {
-	db, err := DBConn.DB()
+// SaveGPSData 保存GPS数据到数据库
+func SaveGPSData(gpsID string, location string) {
+	stmt, err := DB.Prepare("INSERT INTO gps_data(gps_id, location) VALUES(?, ?)")
 	if err != nil {
-		log.Fatalf("Error when closing the database connection: %v", err)
+		log.Println("Prepare statement error:", err)
+		return
 	}
-	db.Close()
+	defer stmt.Close()
+
+	_, err = stmt.Exec(gpsID, location)
+	if err != nil {
+		log.Println("Execute statement error:", err)
+		return
+	}
+
+	fmt.Println("GPS数据插入成功！")
+}
+
+// SaveRPSData 保存RPS数据到数据库
+func SaveRPSData(rpsID string, x int, y int) {
+	stmt, err := DB.Prepare("INSERT INTO rps_data(rps_id, x, y) VALUES(?, ?, ?)")
+	if err != nil {
+		log.Println("Prepare statement error:", err)
+		return
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(rpsID, x, y)
+	if err != nil {
+		log.Println("Execute statement error:", err)
+		return
+	}
+
+	fmt.Println("RPS数据插入成功！")
 }
