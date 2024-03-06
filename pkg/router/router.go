@@ -21,8 +21,8 @@ var dataClients = make(map[*websocket.Conn]bool)
 // SetupRoutes 配置WebSocket路由
 func SetupRoutes() {
 	http.HandleFunc("/data", handleDataWS)
-	http.HandleFunc("/gps", handleGPSWS) // 使用相同的处理函数来处理/gps和/rps
-	http.HandleFunc("/rps", handleRPSWS) // 因为它们的处理逻辑相同
+	http.HandleFunc("/common", handleCommonWS) // 使用相同的处理函数来处理/gps和/rps
+
 }
 
 // handleDataWS 处理连接到/data的WebSocket客户端
@@ -47,7 +47,7 @@ func handleDataWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleGPSWS(w http.ResponseWriter, r *http.Request) {
+func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade failed:", err)
@@ -55,7 +55,7 @@ func handleGPSWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// 接收消息并存储到数据库
+	// 接收消息并根据类型存储到相应的数据库
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
@@ -63,60 +63,75 @@ func handleGPSWS(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		forwardToDataClients(msg)
-		var data map[string]string // 数据格式为 {"id":"...", "location":"..."}
+
+		// 使用interface{}来处理不同格式的数据
+		var data map[string]interface{}
 		if err := json.Unmarshal(msg, &data); err != nil {
 			log.Println("json unmarshal error:", err)
 			continue
 		}
 
-		// 提取id和location值
-		gpsID, okID := data["id"]
-		location, okLocation := data["location"]
-		if !okID || !okLocation {
-			log.Println("Invalid data received")
-			continue
+		// 根据数据类型处理GPS或RPS数据
+		if gpsData, ok := data["gps"]; ok {
+			handleGPSData(gpsData)
+		} else if rpsData, ok := data["rps"]; ok {
+			handleRPSData(rpsData)
+		} else if statusData, ok := data["status"]; ok {
+			handleStatusData(statusData)
+		} else {
+			log.Println("Invalid data type received")
 		}
-
-		// 调用SaveGPSData存储提取的数据
-		db.SaveGPSData(gpsID, location)
 	}
 }
 
-// handleRPSWS 处理/rps路由的WebSocket连接
-func handleRPSWS(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("Upgrade failed:", err)
+func handleGPSData(rawData interface{}) {
+	// 转换并处理GPS数据
+	gpsData, ok := rawData.(map[string]interface{})
+	if !ok {
+		log.Println("Invalid GPS data format")
 		return
 	}
-	defer conn.Close()
-
-	//		{
-	//   	  "BMW": {"x": 200, "y": 300},
-	//   	  "id": {"x": 1, "y": 1}
-	//		}
-
-	// 接收消息并存储到数据库
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			break
-		}
-		forwardToDataClients(msg)
-		var data map[string]struct {
-			X int `json:"x"`
-			Y int `json:"y"`
-		}
-		if err := json.Unmarshal(msg, &data); err != nil {
-			log.Println("json unmarshal error:", err)
-			continue
-		}
-
-		for id, coords := range data {
-			db.SaveRPSData(id, coords.X, coords.Y) // 正确传递参数
-		}
+	gpsID, okID := gpsData["id"].(string)
+	location, okLocation := gpsData["location"].(string)
+	if !okID || !okLocation {
+		log.Println("Invalid GPS data received")
+		return
 	}
+
+	// 直接调用SaveGPSData存储提取的数据，无需分割location
+	db.SaveGPSData(gpsID, location)
+}
+
+func handleRPSData(rawData interface{}) {
+	// 转换并处理RPS数据
+	rpsData, ok := rawData.(map[string]interface{})
+	if !ok {
+		log.Println("Invalid RPS data format")
+		return
+	}
+	for id, coords := range rpsData {
+		coordsMap := coords.(map[string]interface{})
+		x := int(coordsMap["x"].(float64))
+		y := int(coordsMap["y"].(float64))
+		db.SaveRPSData(id, x, y) // 正确传递参数
+	}
+}
+func handleStatusData(rawData interface{}) {
+	statusData, ok := rawData.(map[string]interface{})
+	if !ok {
+		log.Println("Invalid status data format")
+		return
+	}
+	statusID, okID := statusData["id"].(string)
+	battery, okBattery := statusData["battery"].(string)
+	MAC, okMAC := statusData["MAC"].(string)
+	if !okID || !okBattery || !okMAC {
+		log.Println("Invalid status data received")
+		return
+	}
+
+	// 调用SaveStatusData存储提取的数据
+	db.SaveStatusData(statusID, battery, MAC)
 }
 
 // forwardToDataClients 将收到的消息转发到所有连接到/data的客户端
