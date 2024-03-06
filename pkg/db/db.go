@@ -27,9 +27,12 @@ func init() {
 	fmt.Println("数据库连接成功！")
 }
 
-// SaveGPSData 保存GPS数据到数据库
 func SaveGPSData(gpsID string, location string) {
-	stmt, err := DB.Prepare("INSERT INTO gps_data(gps_id, location) VALUES(?, ?)")
+	stmt, err := DB.Prepare(`
+		INSERT INTO gps_data(gps_id, location)
+		VALUES(?, ?)
+		ON DUPLICATE KEY UPDATE location = VALUES(location)
+	`)
 	if err != nil {
 		log.Println("Prepare statement error:", err)
 		return
@@ -42,12 +45,16 @@ func SaveGPSData(gpsID string, location string) {
 		return
 	}
 
-	fmt.Println("GPS数据插入成功！")
+	fmt.Println("GPS数据插入或更新成功！")
 }
 
 // SaveRPSData 保存RPS数据到数据库
 func SaveRPSData(rpsID string, x int, y int) {
-	stmt, err := DB.Prepare("INSERT INTO rps_data(rps_id, x, y) VALUES(?, ?, ?)")
+	stmt, err := DB.Prepare(`
+		INSERT INTO rps_data(rps_id, x, y)
+		VALUES(?, ?, ?)
+		ON DUPLICATE KEY UPDATE x = VALUES(x), y = VALUES(y)
+	`)
 	if err != nil {
 		log.Println("Prepare statement error:", err)
 		return
@@ -60,5 +67,5 @@ func SaveRPSData(rpsID string, x int, y int) {
 		return
 	}
 
-	fmt.Println("RPS数据插入成功！")
+	fmt.Println("RPS数据插入或更新成功！")
 }
