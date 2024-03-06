@@ -63,7 +63,7 @@ func handleGPSWS(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		forwardToDataClients(msg)
-		var data map[string]string // 假设数据格式为 {"id":"...", "location":"..."}
+		var data map[string]string // 数据格式为 {"id":"...", "location":"..."}
 		if err := json.Unmarshal(msg, &data); err != nil {
 			log.Println("json unmarshal error:", err)
 			continue
@@ -90,6 +90,11 @@ func handleRPSWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+
+	//		{
+	//   	  "BMW": {"x": 200, "y": 300},
+	//   	  "id": {"x": 1, "y": 1}
+	//		}
 
 	// 接收消息并存储到数据库
 	for {
