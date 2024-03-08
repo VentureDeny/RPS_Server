@@ -17,12 +17,12 @@ var upgrader = websocket.Upgrader{
 
 // dataClients 存储所有连接到/data的WebSocket客户端
 var dataClients = make(map[*websocket.Conn]bool)
+var commonClients = make(map[*websocket.Conn]bool)
 
 // SetupRoutes 配置WebSocket路由
 func SetupRoutes() {
 	http.HandleFunc("/data", handleDataWS)
 	http.HandleFunc("/common", handleCommonWS) // 使用相同的处理函数来处理/gps和/rps
-
 }
 
 // handleDataWS 处理连接到/data的WebSocket客户端
@@ -54,7 +54,16 @@ func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+	commonClients[conn] = true
 
+	// 保持连接活跃，直到它断开
+	for {
+		if _, _, err := conn.NextReader(); err != nil {
+			conn.Close()
+			delete(commonClients, conn)
+			break
+		}
+	}
 	// 接收消息并根据类型存储到相应的数据库
 	for {
 		_, msg, err := conn.ReadMessage()
@@ -143,4 +152,7 @@ func forwardToDataClients(message []byte) {
 			delete(dataClients, client)
 		}
 	}
+}
+func GetCommonClientsCount() int {
+	return len(commonClients)
 }

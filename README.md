@@ -1,7 +1,7 @@
-# RPS_Server
-Json:
+### RPS_Server
+#Json:
     {
-        "gps": {"id":"01", "location":"30,40"}
+        "gps": {"id":"01", "location":"30.22,40.78"}
     }
 
     {
