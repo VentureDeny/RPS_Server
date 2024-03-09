@@ -3,6 +3,7 @@ package router
 import (
 	"RPS_SERVICE/pkg/db"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -21,12 +22,14 @@ var commonClients = make(map[*websocket.Conn]bool)
 
 // SetupRoutes 配置WebSocket路由
 func SetupRoutes() {
+	log.Println("Router Setup")
 	http.HandleFunc("/data", handleDataWS)
 	http.HandleFunc("/common", handleCommonWS) // 使用相同的处理函数来处理/gps和/rps
 }
 
 // handleDataWS 处理连接到/data的WebSocket客户端
 func handleDataWS(w http.ResponseWriter, r *http.Request) {
+	log.Println("DataHandle Setup")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade failed:", err)
@@ -48,6 +51,7 @@ func handleDataWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCommonWS(w http.ResponseWriter, r *http.Request) {
+	log.Println("New WS Connetced")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade failed:", err)
@@ -56,14 +60,6 @@ func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 	commonClients[conn] = true
 
-	// 保持连接活跃，直到它断开
-	for {
-		if _, _, err := conn.NextReader(); err != nil {
-			conn.Close()
-			delete(commonClients, conn)
-			break
-		}
-	}
 	// 接收消息并根据类型存储到相应的数据库
 	for {
 		_, msg, err := conn.ReadMessage()
@@ -81,19 +77,28 @@ func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 根据数据类型处理GPS或RPS数据
-		if gpsData, ok := data["gps"]; ok {
+		if gpsData, ok := data["GPS"]; ok {
 			handleGPSData(gpsData)
-		} else if rpsData, ok := data["rps"]; ok {
+		} else if rpsData, ok := data["RPS"]; ok {
 			handleRPSData(rpsData)
-		} else if statusData, ok := data["status"]; ok {
+		} else if statusData, ok := data["Status"]; ok {
 			handleStatusData(statusData)
 		} else {
 			log.Println("Invalid data type received")
 		}
 	}
+	// 保持连接活跃，直到它断开
+	for {
+		if _, _, err := conn.NextReader(); err != nil {
+			conn.Close()
+			delete(commonClients, conn)
+			break
+		}
+	}
 }
 
 func handleGPSData(rawData interface{}) {
+	log.Println("GPSHandle Setup")
 	// 转换并处理GPS数据
 	gpsData, ok := rawData.(map[string]interface{})
 	if !ok {
@@ -109,6 +114,7 @@ func handleGPSData(rawData interface{}) {
 
 	// 直接调用SaveGPSData存储提取的数据，无需分割location
 	db.SaveGPSData(gpsID, location)
+	fmt.Println(gpsID, location)
 }
 
 func handleRPSData(rawData interface{}) {
@@ -123,6 +129,7 @@ func handleRPSData(rawData interface{}) {
 		x := int(coordsMap["x"].(float64))
 		y := int(coordsMap["y"].(float64))
 		db.SaveRPSData(id, x, y) // 正确传递参数
+		fmt.Println(id, x, y)
 	}
 }
 func handleStatusData(rawData interface{}) {
@@ -141,6 +148,7 @@ func handleStatusData(rawData interface{}) {
 
 	// 调用SaveStatusData存储提取的数据
 	db.SaveStatusData(statusID, battery, MAC)
+	fmt.Println(statusID, battery, MAC)
 }
 
 // forwardToDataClients 将收到的消息转发到所有连接到/data的客户端
@@ -153,6 +161,8 @@ func forwardToDataClients(message []byte) {
 		}
 	}
 }
-func GetCommonClientsCount() int {
+
+/* func GetCommonClientsCount() int {
 	return len(commonClients)
 }
+*/
