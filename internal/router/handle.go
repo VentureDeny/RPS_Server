@@ -1,4 +1,4 @@
-package handle
+package router
 
 import (
 	"RPS_SERVICE/internal/db"

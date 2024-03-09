@@ -93,10 +93,61 @@ func SaveStatusData(deviceID string, battery string, MAC string) {
 
 // AddDeviceToOnlineAndAll 添加设备到 onlinedevice 和 alldevice 数据库
 func AddDeviceToOnlineAndAll(deviceID string) {
-	// 实现将设备添加到数据库的逻辑
+	// 添加到 alldevice
+	stmtAll, err := DB.Prepare(`
+        INSERT INTO alldevice(device_id)
+        VALUES(?)
+        ON DUPLICATE KEY UPDATE device_id = VALUES(device_id)
+    `)
+	if err != nil {
+		log.Println("Prepare statement error (alldevice):", err)
+		return
+	}
+	defer stmtAll.Close()
+
+	_, err = stmtAll.Exec(deviceID)
+	if err != nil {
+		log.Println("Execute statement error (alldevice):", err)
+		return
+	}
+
+	// 添加到 onlinedevice
+	stmtOnline, err := DB.Prepare(`
+        INSERT INTO onlinedevice(device_id)
+        VALUES(?)
+        ON DUPLICATE KEY UPDATE device_id = VALUES(device_id)
+    `)
+	if err != nil {
+		log.Println("Prepare statement error (onlinedevice):", err)
+		return
+	}
+	defer stmtOnline.Close()
+
+	_, err = stmtOnline.Exec(deviceID)
+	if err != nil {
+		log.Println("Execute statement error (onlinedevice):", err)
+		return
+	}
+
+	fmt.Println("设备已添加到 onlinedevice 和 alldevice！")
 }
 
 // RemoveDeviceFromOnline 从 onlinedevice 数据库中移除设备
 func RemoveDeviceFromOnline(deviceID string) {
-	// 实现从数据库删除设备的逻辑
+	stmt, err := DB.Prepare(`
+        DELETE FROM onlinedevice WHERE device_id = ?
+    `)
+	if err != nil {
+		log.Println("Prepare statement error:", err)
+		return
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(deviceID)
+	if err != nil {
+		log.Println("Execute statement error:", err)
+		return
+	}
+
+	fmt.Println("设备已从 onlinedevice 移除！")
 }
