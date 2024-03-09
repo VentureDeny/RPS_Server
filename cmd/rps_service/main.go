@@ -11,8 +11,6 @@ func main() {
 	// 设置WebSocket和其他路由
 	router.SetupRoutes()
 
-	// 启动新的协程，用于监听并处理WebSocket消息
-
 	fmt.Println("WS_HTTP server started on :8080")
 	// 启动服务器
 	log.Println("HTTP server started on :8080")
