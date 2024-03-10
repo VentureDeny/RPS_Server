@@ -39,7 +39,8 @@ else
 fi
 
 echo "远程执行程序中，下面是前线报道喵..."
-sshpass -p "1850560Dwc" ssh root@47.99.133.66 'chmod +x /home/server//rps_server && /home/server/rps_server' 2>>$LOG_FILE
+sshpass -p "1850560Dwc" ssh root@47.99.133.66 'chmod +x /home/server/rps_server && /home/server/rps_server' | tee -a $LOG_FILE
+
 if [ $? -ne 0 ]; then
     echo "执行失败，请检查日志文件 $LOG_FILE."
     exit 1
