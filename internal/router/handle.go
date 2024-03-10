@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -51,22 +52,30 @@ func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 		log.Println("Upgrade failed:", err)
 		return
 	}
-	defer conn.Close()
+
 	defer func() {
-		conn.Close()
 		// 在设备断开连接时执行清理操作
 		handleDeviceDisconnection(conn)
 		delete(commonClients, conn)
+		conn.Close()
 	}()
 	commonClients[conn] = true
-
-	// 接收消息并根据类型存储到相应的数据库
 	for {
+		// 设置读取超时，如果3秒内没有收到消息，则触发超时错误
+		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
-			break
+			// 超时或其他错误，根据需要处理
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("error: %v", err)
+			} else {
+				log.Println("read timeout or error:", err)
+			}
+			handleDeviceDisconnection(conn)
+			break // 断开连接
 		}
+		// 接收消息并根据类型存储到相应的数据库
+
 		forwardToDataClients(msg)
 
 		// 使用interface{}来处理不同格式的数据
@@ -88,7 +97,9 @@ func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 		} else {
 			log.Println("Invalid data type received")
 		}
+
 	}
+
 	// 保持连接活跃，直到它断开
 	for {
 		if _, _, err := conn.NextReader(); err != nil {
@@ -116,7 +127,7 @@ func handleGPSData(rawData interface{}) {
 
 	// 直接调用SaveGPSData存储提取的数据，无需分割location
 	db.SaveGPSData(gpsID, location)
-	fmt.Println(gpsID, location)
+	//fmt.Println(gpsID, location)
 }
 
 func handleRPSData(rawData interface{}) {
@@ -150,7 +161,7 @@ func handleStatusData(rawData interface{}) {
 
 	// 调用SaveStatusData存储提取的数据
 	db.SaveStatusData(statusID, battery, MAC)
-	fmt.Println(statusID, battery, MAC)
+	//fmt.Println(statusID, battery, MAC)
 }
 func handleSignupData(rawData interface{}, conn *websocket.Conn) {
 	signupData, ok := rawData.(map[string]interface{})
@@ -165,7 +176,7 @@ func handleSignupData(rawData interface{}, conn *websocket.Conn) {
 	}
 	connToDeviceID[conn] = deviceID
 	// 在这里调用数据库函数添加设备到 onlinedevice 和 alldevice
-	//db.AddDeviceToOnlineAndAll(deviceID)
+	db.AddDeviceToOnlineAndAll(deviceID)
 	log.Printf("Device %s signed up and added to databases", deviceID)
 }
 
@@ -180,10 +191,6 @@ func forwardToDataClients(message []byte) {
 	}
 }
 
-/* func GetCommonClientsCount() int {
-	return len(commonClients)
-}
-*/
 // handleDeviceDisconnection 在设备断开连接时调用
 
 func handleDeviceDisconnection(conn *websocket.Conn) {

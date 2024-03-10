@@ -14,7 +14,7 @@ var DB *sql.DB
 // 初始化数据库连接
 func init() {
 	var err error
-	DB, err = sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/rps?parseTime=true")
+	DB, err = sql.Open("mysql", "root:123456@tcp(47.99.133.66:3306)/rps?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
