@@ -43,6 +43,7 @@ func handleDataWS(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+
 }
 
 func handleCommonWS(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +77,7 @@ func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 		}
 		// 接收消息并根据类型存储到相应的数据库
 
-		forwardToDataClients(msg)
+		ForwardToDataClients(msg)
 
 		// 使用interface{}来处理不同格式的数据
 		var data map[string]interface{}
@@ -181,7 +182,7 @@ func handleSignupData(rawData interface{}, conn *websocket.Conn) {
 }
 
 // forwardToDataClients 将收到的消息转发到所有连接到/data的客户端
-func forwardToDataClients(message []byte) {
+func ForwardToDataClients(message []byte) {
 	for client := range dataClients {
 		if err := client.WriteMessage(websocket.TextMessage, message); err != nil {
 			log.Printf("forward error: %v", err)

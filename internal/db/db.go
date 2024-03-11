@@ -151,3 +151,85 @@ func RemoveDeviceFromOnline(deviceID string) {
 
 	fmt.Println("设备已从 onlinedevice 移除！")
 }
+
+// GetAllDevices 获取 alldevice 表中的所有设备ID
+func GetAllDevices() ([]string, error) {
+	rows, err := DB.Query(`
+		SELECT device_id FROM alldevice
+	`)
+	if err != nil {
+		log.Println("Query alldevice error:", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []string
+	for rows.Next() {
+		var deviceID string
+		if err := rows.Scan(&deviceID); err != nil {
+			log.Println("Scan device_id error:", err)
+			continue // 或返回错误
+		}
+		devices = append(devices, deviceID)
+	}
+
+	return devices, nil
+}
+
+// GetOnlineDevices 获取 onlinedevice 表中的所有在线设备ID
+func GetOnlineDevices() ([]string, error) {
+	rows, err := DB.Query(`
+		SELECT device_id FROM onlinedevice
+	`)
+	if err != nil {
+		log.Println("Query onlinedevice error:", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []string
+	for rows.Next() {
+		var deviceID string
+		if err := rows.Scan(&deviceID); err != nil {
+			log.Println("Scan device_id error:", err)
+			continue // 或返回错误
+		}
+		devices = append(devices, deviceID)
+	}
+
+	return devices, nil
+}
+
+// GetGPSData 获取特定设备的最新 GPS 数据
+func GetGPSData(deviceID string) (string, error) {
+	var location string
+	err := DB.QueryRow(`
+		SELECT location FROM gps_data WHERE device_id = ?
+		ORDER BY timestamp DESC
+		LIMIT 1
+	`, deviceID).Scan(&location)
+
+	if err != nil {
+		log.Println("Query GPS data error:", err)
+		return "", err
+	}
+
+	return location, nil
+}
+
+// GetStatusData 获取特定设备的最新状态数据
+func GetStatusData(deviceID string) (string, string, error) {
+	var batteryLevel, macAddress string
+	err := DB.QueryRow(`
+		SELECT battery_level, mac_address FROM status_data WHERE device_id = ?
+		ORDER BY timestamp DESC
+		LIMIT 1
+	`, deviceID).Scan(&batteryLevel, &macAddress)
+
+	if err != nil {
+		log.Println("Query status data error:", err)
+		return "", "", err
+	}
+
+	return batteryLevel, macAddress, nil
+}
