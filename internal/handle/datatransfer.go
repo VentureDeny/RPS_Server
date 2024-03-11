@@ -8,7 +8,6 @@ import (
 
 type DeviceInfo struct {
 	DeviceID     string `json:"device_id"`
-	IsOnline     bool   `json:"is_online"`
 	Location     string `json:"location,omitempty"` // omitempty 表示如果 Location 为空，则不包含这个字段
 	BatteryLevel string `json:"battery_level,omitempty"`
 	MACAddress   string `json:"mac_address,omitempty"`
@@ -28,10 +27,6 @@ func FetchAndSendDeviceData() {
 	for _, deviceID := range deviceIDs {
 		var deviceInfo DeviceInfo
 		deviceInfo.DeviceID = deviceID
-
-		// 检查设备是否在线
-		_, err := db.GetOnlineDevices()
-		deviceInfo.IsOnline = err == nil // 如果没有错误，假设设备在线
 
 		// 获取设备的 GPS 数据
 		location, err := db.GetGPSData(deviceID)
