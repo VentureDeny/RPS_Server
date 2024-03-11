@@ -1,4 +1,4 @@
-package router
+package handle
 
 import (
 	"RPS_SERVICE/internal/db"
@@ -23,7 +23,7 @@ var commonClients = make(map[*websocket.Conn]bool)
 var connToDeviceID = make(map[*websocket.Conn]string)
 
 // handleDataWS 处理连接到/data的WebSocket客户端
-func handleDataWS(w http.ResponseWriter, r *http.Request) {
+func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 	log.Println("DataHandle Setup")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -32,21 +32,34 @@ func handleDataWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for range ticker.C {
+			// 每秒执行这些函数发送数据
+			FetchAndSendDeviceData()
+			SendOnlineDevicesCount()
+		}
+	}()
+
 	// 将新的WebSocket连接添加到dataClients
 	dataClients[conn] = true
 
 	// 保持连接活跃，直到它断开
 	for {
+		// NextReader 会阻塞直到收到一个消息或发生错误（比如连接关闭）
 		if _, _, err := conn.NextReader(); err != nil {
+			log.Printf("WebSocket closed with error: %v", err)
 			conn.Close()
 			delete(dataClients, conn)
-			break
+			break // 退出 for 循环
 		}
+		// 这里可以添加处理消息的逻辑
 	}
-
 }
 
-func handleCommonWS(w http.ResponseWriter, r *http.Request) {
+func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 	log.Println("New WS Connetced")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -76,8 +89,6 @@ func handleCommonWS(w http.ResponseWriter, r *http.Request) {
 			break // 断开连接
 		}
 		// 接收消息并根据类型存储到相应的数据库
-
-		ForwardToDataClients(msg)
 
 		// 使用interface{}来处理不同格式的数据
 		var data map[string]interface{}

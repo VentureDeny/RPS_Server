@@ -1,8 +1,7 @@
-package datatransfer
+package handle
 
 import (
 	"RPS_SERVICE/internal/db"
-	"RPS_SERVICE/internal/router"
 	"encoding/json"
 	"log"
 )
@@ -15,7 +14,7 @@ type DeviceInfo struct {
 	MACAddress   string `json:"mac_address,omitempty"`
 }
 
-func fetchAndSendDeviceData() {
+func FetchAndSendDeviceData() {
 	// 假设我们已经有了一组设备ID，可以是通过 GetAllDevices 函数获取
 	deviceIDs, err := db.GetAllDevices()
 	if err != nil {
@@ -58,5 +57,29 @@ func fetchAndSendDeviceData() {
 	}
 
 	// 发送 JSON 数据给所有连接到 /data 的客户端
-	router.ForwardToDataClients(jsonData)
+	ForwardToDataClients(jsonData)
+}
+
+func SendOnlineDevicesCount() {
+	count, err := db.GetOnlineDevicesCount()
+	if err != nil {
+		log.Printf("Error getting online devices count: %v", err)
+		return
+	}
+
+	// 创建 JSON 对象
+	data := struct {
+		OnlineDevices int `json:"online_devices"`
+	}{
+		OnlineDevices: count,
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("Error marshalling online devices count: %v", err)
+		return
+	}
+
+	// 发送 JSON 数据
+	ForwardToDataClients(jsonData)
 }

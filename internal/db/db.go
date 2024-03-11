@@ -233,3 +233,14 @@ func GetStatusData(deviceID string) (string, string, error) {
 
 	return batteryLevel, macAddress, nil
 }
+
+// GetOnlineDevicesCount 获取在线设备的数量
+func GetOnlineDevicesCount() (int, error) {
+	var count int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM onlinedevice`).Scan(&count)
+	if err != nil {
+		log.Printf("Error querying online devices count: %v", err)
+		return 0, err
+	}
+	return count, nil
+}
