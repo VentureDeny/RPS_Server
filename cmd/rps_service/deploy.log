@@ -1,14 +1,2 @@
-2024/03/10 15:37:31 Router Setup
-2024/03/10 15:37:31 HTTP server started on :8080
-2024/03/10 15:38:04 New WS Connetced
-2024/03/10 15:38:12 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:12 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:13 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:13 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:13 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:13 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:13 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:13 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:14 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-2024/03/10 15:38:14 json unmarshal error: json: cannot unmarshal number into Go value of type map[string]interface {}
-bash: 行 1: 11669 已杀死               /home/server/rps_server
+数据库连接成功！
+WS_HTTP server started on :8080

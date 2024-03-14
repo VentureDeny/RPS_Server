@@ -10,7 +10,6 @@ import (
 func main() {
 	// 设置WebSocket和其他路由
 	router.SetupRoutes()
-
 	fmt.Println("WS_HTTP server started on :8080")
 	// 启动服务器
 	log.Println("HTTP server started on :8080")

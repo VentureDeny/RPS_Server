@@ -201,13 +201,12 @@ func GetOnlineDevices() ([]string, error) {
 }
 
 // GetGPSData 获取特定设备的最新 GPS 数据
+// GetGPSData 获取特定设备的 GPS 数据
 func GetGPSData(deviceID string) (string, error) {
 	var location string
 	err := DB.QueryRow(`
-		SELECT location FROM gps_data WHERE device_id = ?
-		ORDER BY timestamp DESC
-		LIMIT 1
-	`, deviceID).Scan(&location)
+        SELECT location FROM gps_data WHERE device_id = ?
+    `, deviceID).Scan(&location)
 
 	if err != nil {
 		log.Println("Query GPS data error:", err)
@@ -218,13 +217,12 @@ func GetGPSData(deviceID string) (string, error) {
 }
 
 // GetStatusData 获取特定设备的最新状态数据
+// GetStatusData 获取特定设备的状态数据
 func GetStatusData(deviceID string) (string, string, error) {
 	var batteryLevel, macAddress string
 	err := DB.QueryRow(`
-		SELECT battery_level, mac_address FROM status_data WHERE device_id = ?
-		ORDER BY timestamp DESC
-		LIMIT 1
-	`, deviceID).Scan(&batteryLevel, &macAddress)
+        SELECT battery_level, mac_address FROM status_data WHERE device_id = ?
+    `, deviceID).Scan(&batteryLevel, &macAddress)
 
 	if err != nil {
 		log.Println("Query status data error:", err)
