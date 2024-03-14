@@ -220,3 +220,39 @@ func handleDeviceDisconnection(conn *websocket.Conn) {
 	// 从映射中移除此连接
 	delete(connToDeviceID, conn)
 }
+
+// HandleLoginWS 处理登录的WebSocket连接
+func HandleLoginWS(w http.ResponseWriter, r *http.Request) {
+	log.Println("Login WS Endpoint Hit")
+	conn, err := upgrader.Upgrade(w, r, nil) // 使用之前定义的upgrader进行协议升级
+	if err != nil {
+		log.Println("Upgrade failed:", err)
+		return
+	}
+	defer conn.Close() // 确保在函数退出时关闭连接
+
+	// 等待接收一条消息
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		log.Println("Error reading message:", err)
+		return
+	}
+
+	// 打印接收到的消息，仅用于调试目的
+	log.Printf("Received message: %s", msg)
+
+	// 准备响应消息
+	response := map[string]string{
+		"status": "success",
+	}
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		log.Println("Error marshaling response:", err)
+		return
+	}
+
+	// 发送响应消息回客户端
+	if err := conn.WriteMessage(websocket.TextMessage, responseJSON); err != nil {
+		log.Println("Error sending response:", err)
+	}
+}
