@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/gorilla/websocket"
 )
 
+var mu sync.Mutex // 创建一个互斥锁变量
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // 在生产环境中应更严格地检查来源
@@ -21,6 +25,7 @@ var upgrader = websocket.Upgrader{
 var dataClients = make(map[*websocket.Conn]bool)
 var commonClients = make(map[*websocket.Conn]bool)
 var connToDeviceID = make(map[*websocket.Conn]string)
+var fleetClients = make(map[*websocket.Conn]bool)
 
 // handleDataWS 处理连接到/data的WebSocket客户端
 func HandleDataWS(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +63,40 @@ func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 		// 这里可以添加处理消息的逻辑
 	}
 }
+func HandleFleetWS(w http.ResponseWriter, r *http.Request) {
+	log.Println("DataHandle Setup")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
 
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for range ticker.C {
+			// 每秒执行这些函数发送数据
+
+		}
+	}()
+
+	// 将新的WebSocket连接添加到dataClients
+	fleetClients[conn] = true
+
+	// 保持连接活跃，直到它断开
+	for {
+		// NextReader 会阻塞直到收到一个消息或发生错误（比如连接关闭）
+		if _, _, err := conn.NextReader(); err != nil {
+			log.Printf("WebSocket closed with error: %v", err)
+			conn.Close()
+			delete(fleetClients, conn)
+			break // 退出 for 循环
+		}
+		// 这里可以添加处理消息的逻辑
+	}
+}
 func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 	log.Println("New WS Connetced")
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -96,7 +134,7 @@ func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 			log.Println("json unmarshal error:", err)
 			continue
 		}
-
+		ForwardToDataClients(msg)
 		// 根据数据类型处理GPS或RPS数据
 		if gpsData, ok := data["GPS"]; ok {
 			handleGPSData(gpsData)
@@ -194,11 +232,24 @@ func handleSignupData(rawData interface{}, conn *websocket.Conn) {
 
 // forwardToDataClients 将收到的消息转发到所有连接到/data的客户端
 func ForwardToDataClients(message []byte) {
+	mu.Lock()         // 在写操作前锁定
+	defer mu.Unlock() // 确保函数退出时解锁
 	for client := range dataClients {
 		if err := client.WriteMessage(websocket.TextMessage, message); err != nil {
 			log.Printf("forward error: %v", err)
 			client.Close()
 			delete(dataClients, client)
+		}
+	}
+}
+func ForwardToFleetClients(message []byte) {
+	mu.Lock()         // 在写操作前锁定
+	defer mu.Unlock() // 确保函数退出时解锁
+	for client := range fleetClients {
+		if err := client.WriteMessage(websocket.TextMessage, message); err != nil {
+			log.Printf("forward error: %v", err)
+			client.Close()
+			delete(fleetClients, client)
 		}
 	}
 }
@@ -219,6 +270,51 @@ func handleDeviceDisconnection(conn *websocket.Conn) {
 
 	// 从映射中移除此连接
 	delete(connToDeviceID, conn)
+}
+
+// HandleRegisterWS 处理注册的WebSocket连接
+func HandleRegisterWS(w http.ResponseWriter, r *http.Request) {
+	log.Println("Register WS Endpoint Hit")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
+
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		log.Println("Error reading message:", err)
+		return
+	}
+
+	var user map[string]string
+	json.Unmarshal(msg, &user)
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user["password"]), bcrypt.DefaultCost)
+	if err != nil {
+		log.Println("Error hashing password:", err)
+		return
+	}
+
+	_, err = db.DB.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user["username"], hashedPassword)
+	if err != nil {
+		log.Println("Error inserting new user:", err)
+		return
+	}
+
+	response := map[string]string{
+		"status": "success",
+	}
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		log.Println("Error marshaling response:", err)
+		return
+	}
+
+	if err := conn.WriteMessage(websocket.TextMessage, responseJSON); err != nil {
+		log.Println("Error sending response:", err)
+	}
 }
 
 // HandleLoginWS 处理登录的WebSocket连接

@@ -14,7 +14,7 @@ var DB *sql.DB
 // 初始化数据库连接
 func init() {
 	var err error
-	DB, err = sql.Open("mysql", "root:123456@tcp(47.99.133.66:3306)/rps?parseTime=true")
+	DB, err = sql.Open("mysql", "root:1850560Dwc@tcp(47.99.133.66:3306)/rps?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -241,4 +241,49 @@ func GetOnlineDevicesCount() (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+// SaveOrUpdateFleet 保存或更新车队信息
+func SaveOrUpdateFleet(fleetId int, name string) {
+	var err error
+	if fleetId == 0 {
+		_, err = DB.Exec("INSERT INTO fleets (name) VALUES (?)", name)
+	} else {
+		_, err = DB.Exec("UPDATE fleets SET name = ? WHERE id = ?", name, fleetId)
+	}
+	if err != nil {
+		log.Println("Error saving or updating fleet:", err)
+	}
+}
+
+type FleetData struct {
+	FleetID   string `json:"fleet_id"`
+	FleetName string `json:"fleet_name"`
+	Count     int    `json:"count"`
+	Error     bool   `json:"error"`
+}
+
+func FetchFleets() ([]FleetData, error) {
+	rows, err := DB.Query(`SELECT id, name, count, error FROM fleets`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var fleets []FleetData
+	for rows.Next() {
+		var f FleetData
+		var errFlag int
+		err := rows.Scan(&f.FleetID, &f.FleetName, &f.Count, &errFlag)
+		if err != nil {
+			log.Printf("Error scanning fleet row: %v", err)
+			continue
+		}
+		f.Error = errFlag != 0
+		fleets = append(fleets, f)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return fleets, nil
 }
