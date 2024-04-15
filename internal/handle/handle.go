@@ -78,7 +78,7 @@ func HandleFleetWS(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		for range ticker.C {
 			// 每秒执行这些函数发送数据
-
+			FetchAndSendFleetData()
 		}
 	}()
 
