@@ -76,7 +76,7 @@ func SendOnlineDevicesCount() {
 	}
 
 	// 发送 JSON 数据
-	ForwardToDataClients(jsonData)
+	ForwardToCountClients(jsonData)
 }
 
 type FleetData struct {

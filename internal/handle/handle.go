@@ -26,6 +26,7 @@ var dataClients = make(map[*websocket.Conn]bool)
 var commonClients = make(map[*websocket.Conn]bool)
 var connToDeviceID = make(map[*websocket.Conn]string)
 var fleetClients = make(map[*websocket.Conn]bool)
+var countClients = make(map[*websocket.Conn]bool)
 
 // handleDataWS 处理连接到/data的WebSocket客户端
 func HandleDataWS(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +64,42 @@ func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 		// 这里可以添加处理消息的逻辑
 	}
 }
+
+func HandleCountWS(w http.ResponseWriter, r *http.Request) {
+	log.Println("CountHandle Setup")
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for range ticker.C {
+			// 每秒执行这些函数发送数据
+			SendOnlineDevicesCount()
+		}
+	}()
+
+	// 将新的WebSocket连接添加到dataClients
+	countClients[conn] = true
+
+	// 保持连接活跃，直到它断开
+	for {
+		// NextReader 会阻塞直到收到一个消息或发生错误（比如连接关闭）
+		if _, _, err := conn.NextReader(); err != nil {
+			log.Printf("WebSocket closed with error: %v", err)
+			conn.Close()
+			delete(countClients, conn)
+			break // 退出 for 循环
+		}
+		// 这里可以添加处理消息的逻辑
+	}
+}
+
 func HandleFleetWS(w http.ResponseWriter, r *http.Request) {
 	log.Println("DataHandle Setup")
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -114,7 +151,7 @@ func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 	commonClients[conn] = true
 	for {
 		// 设置读取超时，如果3秒内没有收到消息，则触发超时错误
-		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			// 超时或其他错误，根据需要处理
@@ -239,6 +276,17 @@ func ForwardToDataClients(message []byte) {
 			log.Printf("forward error: %v", err)
 			client.Close()
 			delete(dataClients, client)
+		}
+	}
+}
+func ForwardToCountClients(message []byte) {
+	mu.Lock()         // 在写操作前锁定
+	defer mu.Unlock() // 确保函数退出时解锁
+	for client := range countClients {
+		if err := client.WriteMessage(websocket.TextMessage, message); err != nil {
+			log.Printf("forward error: %v", err)
+			client.Close()
+			delete(countClients, client)
 		}
 	}
 }
