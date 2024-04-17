@@ -14,7 +14,7 @@ var DB *sql.DB
 // 初始化数据库连接
 func init() {
 	var err error
-	DB, err = sql.Open("mysql", "root:1850560Dwc@tcp(47.99.133.66:3306)/rps?parseTime=true")
+	DB, err = sql.Open("mysql", "root:1850560Dwc@tcp(localhost:3306)/rps?parseTime=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func GetGPSData(deviceID string) (string, error) {
     `, deviceID).Scan(&location)
 
 	if err != nil {
-		log.Println("Query GPS data error:", err)
+		//log.Println("Query GPS data error:", err)
 		return "", err
 	}
 

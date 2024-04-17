@@ -164,14 +164,15 @@ func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 			break // 断开连接
 		}
 		// 接收消息并根据类型存储到相应的数据库
-
+		ForwardToDataClients(msg)
+		log.Println(msg)
 		// 使用interface{}来处理不同格式的数据
 		var data map[string]interface{}
 		if err := json.Unmarshal(msg, &data); err != nil {
 			log.Println("json unmarshal error:", err)
 			continue
 		}
-		ForwardToDataClients(msg)
+
 		// 根据数据类型处理GPS或RPS数据
 		if gpsData, ok := data["GPS"]; ok {
 			handleGPSData(gpsData)
