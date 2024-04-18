@@ -44,9 +44,10 @@ func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		for range ticker.C {
 			// 每秒执行这些函数发送数据
-			FetchAndSendDeviceData()
-			SendOnlineDevicesCount()
+			//FetchAndSendDeviceData()
+			//SendOnlineDevicesCount()
 		}
+
 	}()
 
 	// 将新的WebSocket连接添加到dataClients
