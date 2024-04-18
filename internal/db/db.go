@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -10,6 +11,19 @@ import (
 
 // DB 是全局数据库连接实例
 var DB *sql.DB
+
+type FleetData struct {
+	ID       string   `json:"id,omitempty"`
+	Name     string   `json:"name"`
+	Vehicles []string `json:"vehicles"`
+}
+type WarningData struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Message   string `json:"message"`
+	Level     string `json:"level"`
+	Timestamp string `json:"timestamp"`
+}
 
 // 初始化数据库连接
 func init() {
@@ -243,47 +257,141 @@ func GetOnlineDevicesCount() (int, error) {
 	return count, nil
 }
 
-// SaveOrUpdateFleet 保存或更新车队信息
-func SaveOrUpdateFleet(fleetId int, name string) {
-	var err error
-	if fleetId == 0 {
-		_, err = DB.Exec("INSERT INTO fleets (name) VALUES (?)", name)
-	} else {
-		_, err = DB.Exec("UPDATE fleets SET name = ? WHERE id = ?", name, fleetId)
-	}
+func CreateFleet(name string, vehicles []string) error {
+	vehiclesJSON, err := json.Marshal(vehicles)
 	if err != nil {
-		log.Println("Error saving or updating fleet:", err)
+		return err
 	}
+
+	stmt, err := DB.Prepare(`INSERT INTO fleet (name, vehicles) VALUES (?, ?)`)
+	if err != nil {
+		log.Println("Prepare statement error:", err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(name, vehiclesJSON)
+	if err != nil {
+		log.Println("Execute statement error:", err)
+		return err
+	}
+
+	fmt.Println("车队创建成功！")
+	return nil
 }
 
-type FleetData struct {
-	FleetID   string `json:"fleet_id"`
-	FleetName string `json:"fleet_name"`
-	Count     int    `json:"count"`
-	Error     bool   `json:"error"`
+// UpdateFleet 更新数据库中的现有车队
+func UpdateFleet(fleetID, name string, vehicles []string) error {
+	vehiclesJSON, err := json.Marshal(vehicles)
+	if err != nil {
+		return err
+	}
+
+	stmt, err := DB.Prepare(`UPDATE fleet SET name = ?, vehicles = ? WHERE fleet_id = ?`)
+	if err != nil {
+		log.Println("Prepare statement error:", err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(name, vehiclesJSON, fleetID)
+	if err != nil {
+		log.Println("Execute statement error:", err)
+		return err
+	}
+
+	fmt.Println("车队更新成功！")
+	return nil
 }
 
-func FetchFleets() ([]FleetData, error) {
-	rows, err := DB.Query(`SELECT id, name, count, error FROM fleets`)
+// DeleteFleet 从数据库中删除一个车队
+func DeleteFleet(fleetID string) error {
+	stmt, err := DB.Prepare(`DELETE FROM fleet WHERE fleet_id = ?`)
+	if err != nil {
+		log.Println("Prepare statement error:", err)
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(fleetID)
+	if err != nil {
+		log.Println("Execute statement error:", err)
+		return err
+	}
+
+	fmt.Println("车队删除成功！")
+	return nil
+}
+func GetFleets() ([]FleetData, error) {
+	var fleets []FleetData
+
+	// 编写 SQL 查询语句
+	query := `SELECT fleet_id, name, vehicles FROM fleet`
+	rows, err := DB.Query(query)
+	if err != nil {
+		log.Printf("Error querying fleet data: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var f FleetData
+		var vehiclesJSON string // 用字符串接收JSON数据
+
+		err := rows.Scan(&f.ID, &f.Name, &vehiclesJSON)
+		if err != nil {
+			log.Printf("Error scanning fleet data: %v", err)
+			continue // 也可以选择返回错误
+		}
+
+		// 将 JSON 字符串转换为 string 切片
+		err = json.Unmarshal([]byte(vehiclesJSON), &f.Vehicles)
+		if err != nil {
+			log.Printf("Error unmarshalling vehicles JSON: %v", err)
+			continue // 同上，根据需要处理错误
+		}
+
+		fleets = append(fleets, f)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Error during rows iteration: %v", err)
+		return nil, err
+	}
+
+	return fleets, nil
+}
+func SaveWarning(data WarningData) error {
+	stmt, err := DB.Prepare("INSERT INTO warnings (id, type, message, level, timestamp) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(data.ID, data.Type, data.Message, data.Level, data.Timestamp)
+	return err
+}
+func FetchAllWarnings() ([]WarningData, error) {
+	var warnings []WarningData
+	rows, err := DB.Query("SELECT id, type, message, level, timestamp FROM warnings")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var fleets []FleetData
 	for rows.Next() {
-		var f FleetData
-		var errFlag int
-		err := rows.Scan(&f.FleetID, &f.FleetName, &f.Count, &errFlag)
-		if err != nil {
-			log.Printf("Error scanning fleet row: %v", err)
+		var wd WarningData
+		if err := rows.Scan(&wd.ID, &wd.Type, &wd.Message, &wd.Level, &wd.Timestamp); err != nil {
+			log.Println("Failed to scan warning:", err)
 			continue
 		}
-		f.Error = errFlag != 0
-		fleets = append(fleets, f)
+		warnings = append(warnings, wd)
 	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	return fleets, nil
+
+	return warnings, nil
+}
+
+func DeleteWarningByTimestamp(timestamp string) error {
+	_, err := DB.Exec("DELETE FROM warnings WHERE timestamp = ?", timestamp)
+	return err
 }

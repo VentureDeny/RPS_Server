@@ -79,25 +79,18 @@ func SendOnlineDevicesCount() {
 	ForwardToCountClients(jsonData)
 }
 
-type FleetData struct {
-	FleetID   string `json:"fleet_id"`
-	FleetName string `json:"fleet_name"`
-	Count     int    `json:"count"`
-	Error     bool   `json:"error"`
-}
-
 func FetchAndSendFleetData() {
-	fleets, err := db.FetchFleets() // 确保此方法实现正确，返回[]FleetData
-	if err != nil {
-		log.Printf("Error fetching fleet data: %v", err)
-		return
-	}
+	//fleets, err := db.FetchFleets() // 确保此方法实现正确，返回[]FleetData
+	//if err != nil {
+	//	log.Printf("Error fetching fleet data: %v", err)
+	//	return
+	//}
 
-	jsonData, err := json.Marshal(fleets)
-	if err != nil {
-		log.Printf("Error marshaling fleet data: %v", err)
-		return
-	}
+	//jsonData, err := json.Marshal(fleets)
+	//if err != nil {
+	//		log.Printf("Error marshaling fleet data: %v", err)
+	//		return
+	//}
 
-	ForwardToFleetClients(jsonData) // 假设您已经实现了此方法来发送数据
+	//ForwardToFleetClients(jsonData) // 假设您已经实现了此方法来发送数据
 }

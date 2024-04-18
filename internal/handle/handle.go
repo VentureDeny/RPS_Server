@@ -14,6 +14,23 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type FleetAction struct {
+	Action string       `json:"action"`
+	Data   db.FleetData `json:"data"` // Use the FleetData type from the db package
+}
+
+// 定义接收到的警告数据结构
+
+// 定义从前端接收的消息格式
+type ClientMessage struct {
+	Action string         `json:"action"`
+	Data   db.WarningData `json:"data"`
+}
+type ClientMessage2 struct {
+	Action string      `json:"action"`
+	Data   interface{} `json:"data"`
+}
+
 var mu sync.Mutex // 创建一个互斥锁变量
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -38,7 +55,7 @@ func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	go func() {
@@ -61,10 +78,55 @@ func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 			delete(dataClients, conn)
 			break // 退出 for 循环
 		}
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("WebSocket closed with error: %v", err)
+			break
+		}
+
+		var msg ClientMessage
+		err = json.Unmarshal(message, &msg)
+		if err != nil {
+			log.Printf("Error unmarshalling message: %v", err)
+			continue
+		}
+
+		switch msg.Action {
+		case "logWarning":
+			handleWarning(msg.Data)
+		default:
+			log.Printf("Unsupported action received: %s", msg.Action)
+		}
 		// 这里可以添加处理消息的逻辑
 	}
 }
 
+func handleWarning(data db.WarningData) {
+	log.Printf("Received warning: %+v", data)
+	// 在这里调用数据库操作函数，将警告信息存储到数据库中
+	err := SaveWarningToDB(data)
+	if err != nil {
+		log.Printf("Error saving warning to DB: %v", err)
+	}
+}
+
+func SaveWarningToDB(data db.WarningData) error {
+	// 假设有一个数据库操作函数实现了存储逻辑
+	return db.SaveWarning(data)
+}
+
+func GetAllDevicesHandler(w http.ResponseWriter, r *http.Request) {
+	devices, err := db.GetAllDevices() // 假设这个函数已经存在于你的 db 包中，用于获取所有设备的ID
+	if err != nil {
+		http.Error(w, "Failed to get devices", http.StatusInternalServerError)
+		return
+	}
+
+	// 设置响应类型为JSON
+	w.Header().Set("Content-Type", "application/json")
+	// 将设备列表编码为JSON并发送响应
+	json.NewEncoder(w).Encode(devices)
+}
 func HandleCountWS(w http.ResponseWriter, r *http.Request) {
 	log.Println("CountHandle Setup")
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -101,7 +163,7 @@ func HandleCountWS(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleFleetWS(w http.ResponseWriter, r *http.Request) {
-	log.Println("DataHandle Setup")
+	log.Println("Fleet WebSocket endpoint hit")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade failed:", err)
@@ -109,30 +171,94 @@ func HandleFleetWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
+	// 发送现有车队数据到前端
+	sendExistingFleetData(conn)
 
-	go func() {
-		for range ticker.C {
-			// 每秒执行这些函数发送数据
-			FetchAndSendFleetData()
-		}
-	}()
-
-	// 将新的WebSocket连接添加到dataClients
-	fleetClients[conn] = true
-
-	// 保持连接活跃，直到它断开
+	// 持续监听消息
 	for {
-		// NextReader 会阻塞直到收到一个消息或发生错误（比如连接关闭）
-		if _, _, err := conn.NextReader(); err != nil {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
 			log.Printf("WebSocket closed with error: %v", err)
-			conn.Close()
-			delete(fleetClients, conn)
-			break // 退出 for 循环
+			break
 		}
-		// 这里可以添加处理消息的逻辑
+
+		var fa FleetAction
+		err = json.Unmarshal(message, &fa)
+		if err != nil {
+			log.Printf("Error unmarshalling message: %v", err)
+			continue
+		}
+
+		switch fa.Action {
+		case "createFleet":
+			createFleet(conn, fa.Data)
+		case "updateFleet":
+			updateFleet(conn, fa.Data)
+		case "deleteFleet":
+			deleteFleet(conn, fa.Data.ID)
+		case "getFleets":
+			sendExistingFleetData(conn)
+
+		default:
+			log.Printf("Unsupported fleet action: %s", fa.Action)
+		}
 	}
+}
+
+// 发送现有车队数据
+func sendExistingFleetData(conn *websocket.Conn) {
+	fleets, err := db.GetFleets() // 假设有这样一个函数来获取所有车队数据
+	if err != nil {
+		log.Printf("Error fetching fleets: %v", err)
+		return
+	}
+	// 将获取的车队数据发送给前端
+	conn.WriteJSON(fleets)
+
+	device, err := db.GetAllDevices()
+	if err != nil {
+		log.Printf("Error fetching fleets: %v", err)
+		return
+	}
+	err = conn.WriteJSON(device)
+	if err != nil {
+		log.Printf("Error sending fleet data: %v", err)
+		return
+	}
+}
+
+func createFleet(conn *websocket.Conn, data db.FleetData) {
+	log.Printf("Creating fleet: %+v", data)
+	err := db.CreateFleet(data.Name, data.Vehicles)
+	if err != nil {
+		log.Printf("Error creating fleet: %v", err)
+		conn.WriteMessage(websocket.TextMessage, []byte("Error creating fleet"))
+		return
+	}
+	conn.WriteMessage(websocket.TextMessage, []byte("Fleet created successfully"))
+}
+
+func updateFleet(conn *websocket.Conn, data db.FleetData) {
+	log.Printf("Updating fleet: %+v", data)
+
+	err := db.UpdateFleet(data.ID, data.Name, data.Vehicles)
+	if err != nil {
+		log.Printf("Error updating fleet: %v", err)
+		conn.WriteMessage(websocket.TextMessage, []byte("Error updating fleet"))
+		return
+	}
+	conn.WriteMessage(websocket.TextMessage, []byte("Fleet updated successfully"))
+}
+
+func deleteFleet(conn *websocket.Conn, id string) {
+	log.Printf("Deleting fleet with ID: %s", id)
+	err := db.DeleteFleet(id)
+	if err != nil {
+		log.Printf("Error deleting fleet: %v", err)
+		conn.WriteMessage(websocket.TextMessage, []byte("Error deleting fleet"))
+		return
+	}
+	conn.WriteMessage(websocket.TextMessage, []byte("Fleet deleted successfully"))
 }
 func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 	log.Println("New WS Connetced")
@@ -165,7 +291,7 @@ func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 		}
 		// 接收消息并根据类型存储到相应的数据库
 		ForwardToDataClients(msg)
-		log.Println(msg)
+		//log.Println(msg)
 		// 使用interface{}来处理不同格式的数据
 		var data map[string]interface{}
 		if err := json.Unmarshal(msg, &data); err != nil {
@@ -182,8 +308,6 @@ func HandleCommonWS(w http.ResponseWriter, r *http.Request) {
 			handleStatusData(statusData)
 		} else if signupData, ok := data["Signup"]; ok {
 			handleSignupData(signupData, conn)
-		} else {
-			log.Println("Invalid data type received")
 		}
 
 	}
@@ -236,14 +360,14 @@ func handleRPSData(rawData interface{}) {
 func handleStatusData(rawData interface{}) {
 	statusData, ok := rawData.(map[string]interface{})
 	if !ok {
-		log.Println("Invalid status data format")
+		//log.Println("Invalid status data format")
 		return
 	}
 	statusID, okID := statusData["id"].(string)
 	battery, okBattery := statusData["battery"].(string)
 	MAC, okMAC := statusData["MAC"].(string)
 	if !okID || !okBattery || !okMAC {
-		log.Println("Invalid status data received")
+		//log.Println("Invalid status data received")
 		return
 	}
 
@@ -399,5 +523,67 @@ func HandleLoginWS(w http.ResponseWriter, r *http.Request) {
 	// 发送响应消息回客户端
 	if err := conn.WriteMessage(websocket.TextMessage, responseJSON); err != nil {
 		log.Println("Error sending response:", err)
+	}
+}
+func HandleWarningWS(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("Upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
+
+	// 在连接建立时发送现有的警告数据
+	sendExistingWarnings(conn)
+
+	for {
+
+		// 这里可以添加处理消息的逻辑
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("WebSocket closed with error: %v", err)
+			break
+		}
+
+		var msg ClientMessage2
+		err = json.Unmarshal(message, &msg)
+		if err != nil {
+			log.Printf("Error unmarshalling message: %v", err)
+			continue
+		}
+
+		switch msg.Action {
+		case "deleteError":
+			//log.Println(msg.Data)
+			if timestamp, ok := msg.Data.(string); ok {
+				deleteWarning(timestamp)
+				log.Println(timestamp)
+			} else {
+				log.Println("Delete Error")
+			}
+		case "getErrors":
+			sendExistingWarnings(conn)
+		default:
+			log.Printf("Unsupported action received: %s", msg.Action)
+		}
+	}
+}
+
+func sendExistingWarnings(conn *websocket.Conn) {
+	warnings, err := db.FetchAllWarnings()
+	if err != nil {
+		log.Printf("Failed to fetch warnings: %v", err)
+		return
+	}
+	err = conn.WriteJSON(warnings)
+	if err != nil {
+		log.Printf("Failed to send warnings: %v", err)
+	}
+}
+
+func deleteWarning(timestamp string) {
+	err := db.DeleteWarningByTimestamp(timestamp)
+	if err != nil {
+		log.Printf("Failed to delete warning: %v", err)
 	}
 }
