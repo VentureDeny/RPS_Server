@@ -116,16 +116,17 @@ func handleStatusData(rawData interface{}) {
 		//log.Println("Invalid status data format")
 		return
 	}
-	statusID, okID := statusData["id"].(string)
-	battery, okBattery := statusData["battery"].(string)
-	MAC, okMAC := statusData["MAC"].(string)
-	if !okID || !okBattery || !okMAC {
-		//log.Println("Invalid status data received")
-		return
-	}
+	statusID := statusData["id"].(string)
+	battery := statusData["battery"].(string)
+	MAC := statusData["MAC"].(string)
+	location := statusData["location"].(string)
+	speed := statusData["speed"].(string)
+	accelerationX := statusData["accelerationX"].(string)
+	accelerationY := statusData["accelerationY"].(string)
+	accelerationZ := statusData["accelerationZ"].(string)
 
 	// 调用SaveStatusData存储提取的数据
-	db.SaveStatusData(statusID, battery, MAC)
+	db.SaveStatusData(statusID, battery, MAC, location, speed, accelerationX, accelerationY, accelerationZ)
 	//fmt.Println(statusID, battery, MAC)
 }
 func handleSignupData(rawData interface{}, conn *websocket.Conn) {

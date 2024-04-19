@@ -84,11 +84,11 @@ func SaveRPSData(deviceID string, x int, y int) {
 	fmt.Println("RPS数据插入或更新成功！")
 }
 
-func SaveStatusData(deviceID string, battery string, MAC string) {
+func SaveStatusData(deviceID string, battery string, MAC string, location string, speed string, accelerationX string, accelerationY string, accelerationZ string) {
 	stmt, err := DB.Prepare(`
-		INSERT INTO status_data(device_id, battery_level, mac_address)
-		VALUES(?, ?, ?)
-		ON DUPLICATE KEY UPDATE battery_level = VALUES(battery_level), mac_address = VALUES(mac_address)
+		INSERT INTO status_data(device_id, location, battery_level, mac_address, speed, accelerationX, accelerationY, accelerationZ)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+		ON DUPLICATE KEY UPDATE battery_level = VALUES(battery_level), mac_address = VALUES(mac_address), location = VALUES(location), speed = VALUES(speed), accelerationX = VALUES(accelerationX), accelerationY = VALUES(accelerationY), accelerationZ = VALUES(accelerationZ)
 	`)
 	if err != nil {
 		log.Println("Prepare statement error:", err)
@@ -96,7 +96,7 @@ func SaveStatusData(deviceID string, battery string, MAC string) {
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(deviceID, battery, MAC)
+	_, err = stmt.Exec(deviceID, location, battery, MAC, speed, accelerationX, accelerationY, accelerationZ)
 	if err != nil {
 		log.Println("Execute statement error:", err)
 		return
