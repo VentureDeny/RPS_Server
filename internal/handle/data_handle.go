@@ -25,7 +25,7 @@ func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	go func() {
