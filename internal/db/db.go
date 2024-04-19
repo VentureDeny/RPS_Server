@@ -25,6 +25,17 @@ type WarningData struct {
 	Timestamp string `json:"timestamp"`
 }
 
+type DeviceData struct {
+	DeviceID      string `json:"device_id"`
+	Location      string `json:"location,omitempty"`
+	BatteryLevel  int    `json:"battery_level,omitempty"`
+	MacAddress    string `json:"mac_address,omitempty"`
+	Speed         string `json:"speed,omitempty"`
+	AccelerationX string `json:"accelerationX,omitempty"`
+	AccelerationY string `json:"accelerationY,omitempty"`
+	AccelerationZ string `json:"accelerationZ,omitempty"`
+}
+
 // 初始化数据库连接
 func init() {
 	var err error
@@ -230,8 +241,6 @@ func GetGPSData(deviceID string) (string, error) {
 	return location, nil
 }
 
-// GetStatusData 获取特定设备的最新状态数据
-// GetStatusData 获取特定设备的状态数据
 func GetStatusData(deviceID string) (string, string, error) {
 	var batteryLevel, macAddress string
 	err := DB.QueryRow(`
@@ -394,4 +403,30 @@ func FetchAllWarnings() ([]WarningData, error) {
 func DeleteWarningByTimestamp(timestamp string) error {
 	_, err := DB.Exec("DELETE FROM warnings WHERE timestamp = ?", timestamp)
 	return err
+}
+
+func QueryDeviceData() ([]DeviceData, error) {
+
+	// 查询数据
+	rows, err := DB.Query("SELECT device_id, location, battery_level, mac_address, speed, accelerationX, accelerationY, accelerationZ FROM status_data")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// 将查询结果转换为结构体切片
+	var devices []DeviceData
+	for rows.Next() {
+		var device DeviceData
+		err := rows.Scan(&device.DeviceID, &device.Location, &device.BatteryLevel, &device.MacAddress, &device.Speed, &device.AccelerationX, &device.AccelerationY, &device.AccelerationZ)
+		if err != nil {
+			return nil, err
+		}
+		devices = append(devices, device)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return devices, nil
 }

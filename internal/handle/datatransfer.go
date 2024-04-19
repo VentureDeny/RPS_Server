@@ -14,44 +14,18 @@ type DeviceInfo struct {
 }
 
 func FetchAndSendDeviceData() {
-	// 假设我们已经有了一组设备ID，可以是通过 GetAllDevices 函数获取
-	deviceIDs, err := db.GetAllDevices()
+	// 查询设备数据
+	devices, err := db.QueryDeviceData()
 	if err != nil {
-		log.Println("Error fetching device IDs:", err)
-		return
+		log.Fatal(err)
 	}
 
-	// 为了演示，我们创建一个 slice 来存储所有的设备信息
-	var devicesInfo []DeviceInfo
-
-	for _, deviceID := range deviceIDs {
-		var deviceInfo DeviceInfo
-		deviceInfo.DeviceID = deviceID
-
-		// 获取设备的 GPS 数据
-		location, err := db.GetGPSData(deviceID)
-		if err == nil {
-			deviceInfo.Location = location
-		}
-
-		// 获取设备的状态数据
-		batteryLevel, macAddress, err := db.GetStatusData(deviceID)
-		if err == nil {
-			deviceInfo.BatteryLevel = batteryLevel
-			deviceInfo.MACAddress = macAddress
-		}
-
-		devicesInfo = append(devicesInfo, deviceInfo)
-	}
-
-	// 将设备信息序列化为 JSON
-	jsonData, err := json.Marshal(devicesInfo)
+	// 将结构体切片转换为 JSON
+	jsonData, err := json.Marshal(devices)
 	if err != nil {
-		log.Println("Error marshalling devices info:", err)
-		return
+		log.Fatal(err)
 	}
 
-	// 发送 JSON 数据给所有连接到 /data 的客户端
 	ForwardToDataClients(jsonData)
 }
 
