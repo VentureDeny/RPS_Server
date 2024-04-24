@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"RPS_SERVICE/internal/db"
+	datastruct "RPS_SERVICE/internal/struct"
 
 	"github.com/gorilla/websocket"
 )
@@ -72,7 +73,7 @@ func HandleDataWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleWarning(data db.WarningData) {
+func handleWarning(data datastruct.WarningData) {
 	log.Printf("Received warning: %+v", data)
 	// 在这里调用数据库操作函数，将警告信息存储到数据库中
 	err := SaveWarningToDB(data)

@@ -2,6 +2,7 @@ package handle
 
 import (
 	"RPS_SERVICE/internal/db"
+	datastruct "RPS_SERVICE/internal/struct"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -15,8 +16,8 @@ type ClientMessage2 struct {
 }
 
 type ClientMessage struct {
-	Action string         `json:"action"`
-	Data   db.WarningData `json:"data"`
+	Action string                 `json:"action"`
+	Data   datastruct.WarningData `json:"data"`
 }
 
 func HandleWarningWS(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +64,7 @@ func HandleWarningWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SaveWarningToDB(data db.WarningData) error {
+func SaveWarningToDB(data datastruct.WarningData) error {
 	// 假设有一个数据库操作函数实现了存储逻辑
 	return db.SaveWarning(data)
 }
@@ -83,4 +84,9 @@ func sendExistingWarnings(conn *websocket.Conn) {
 	if err != nil {
 		log.Printf("Failed to send warnings: %v", err)
 	}
+}
+
+// 更新数据库代码
+func UpdateWarning(data datastruct.WarningData) error {
+	return db.SaveWarning(data)
 }

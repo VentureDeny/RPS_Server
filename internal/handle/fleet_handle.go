@@ -2,6 +2,7 @@ package handle
 
 import (
 	"RPS_SERVICE/internal/db"
+	datastruct "RPS_SERVICE/internal/struct"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -12,8 +13,8 @@ import (
 var fleetClients = make(map[*websocket.Conn]bool)
 
 type FleetAction struct {
-	Action string       `json:"action"`
-	Data   db.FleetData `json:"data"` // Use the FleetData type from the db package
+	Action string               `json:"action"`
+	Data   datastruct.FleetData `json:"data"` // Use the FleetData type from the db package
 }
 
 func HandleFleetWS(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +60,7 @@ func HandleFleetWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func createFleet(conn *websocket.Conn, data db.FleetData) {
+func createFleet(conn *websocket.Conn, data datastruct.FleetData) {
 	log.Printf("Creating fleet: %+v", data)
 	err := db.CreateFleet(data.Name, data.Vehicles)
 	if err != nil {
@@ -70,7 +71,7 @@ func createFleet(conn *websocket.Conn, data db.FleetData) {
 	conn.WriteMessage(websocket.TextMessage, []byte("Fleet created successfully"))
 }
 
-func updateFleet(conn *websocket.Conn, data db.FleetData) {
+func updateFleet(conn *websocket.Conn, data datastruct.FleetData) {
 	log.Printf("Updating fleet: %+v", data)
 
 	err := db.UpdateFleet(data.ID, data.Name, data.Vehicles)

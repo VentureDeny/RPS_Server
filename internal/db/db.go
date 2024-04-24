@@ -1,6 +1,7 @@
 package db
 
 import (
+	datastruct "RPS_SERVICE/internal/struct"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,30 +12,6 @@ import (
 
 // DB 是全局数据库连接实例
 var DB *sql.DB
-
-type FleetData struct {
-	ID       string   `json:"id,omitempty"`
-	Name     string   `json:"name"`
-	Vehicles []string `json:"vehicles"`
-}
-type WarningData struct {
-	ID        string `json:"id"`
-	Type      string `json:"type"`
-	Message   string `json:"message"`
-	Level     string `json:"level"`
-	Timestamp string `json:"timestamp"`
-}
-
-type DeviceData struct {
-	DeviceID      string `json:"device_id"`
-	Location      string `json:"location,omitempty"`
-	BatteryLevel  int    `json:"battery_level,omitempty"`
-	MacAddress    string `json:"mac_address,omitempty"`
-	Speed         string `json:"speed,omitempty"`
-	AccelerationX string `json:"accelerationX,omitempty"`
-	AccelerationY string `json:"accelerationY,omitempty"`
-	AccelerationZ string `json:"accelerationZ,omitempty"`
-}
 
 // 初始化数据库连接
 func init() {
@@ -50,27 +27,6 @@ func init() {
 	}
 
 	fmt.Println("数据库连接成功！")
-}
-
-func SaveGPSData(deviceID string, location string) {
-	stmt, err := DB.Prepare(`
-		INSERT INTO gps_data(device_id, location)
-		VALUES(?, ?)
-		ON DUPLICATE KEY UPDATE location = VALUES(location)
-	`)
-	if err != nil {
-		log.Println("Prepare statement error:", err)
-		return
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(deviceID, location)
-	if err != nil {
-		log.Println("Execute statement error:", err)
-		return
-	}
-
-	fmt.Println("GPS数据插入或更新成功！")
 }
 
 // SaveRPSData 保存RPS数据到数据库
@@ -93,27 +49,6 @@ func SaveRPSData(deviceID string, x int, y int) {
 	}
 
 	fmt.Println("RPS数据插入或更新成功！")
-}
-
-func SaveStatusData(deviceID string, battery string, MAC string, location string, speed string, accelerationX string, accelerationY string, accelerationZ string) {
-	stmt, err := DB.Prepare(`
-		INSERT INTO status_data(device_id, location, battery_level, mac_address, speed, accelerationX, accelerationY, accelerationZ)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE battery_level = VALUES(battery_level), mac_address = VALUES(mac_address), location = VALUES(location), speed = VALUES(speed), accelerationX = VALUES(accelerationX), accelerationY = VALUES(accelerationY), accelerationZ = VALUES(accelerationZ)
-	`)
-	if err != nil {
-		log.Println("Prepare statement error:", err)
-		return
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(deviceID, location, battery, MAC, speed, accelerationX, accelerationY, accelerationZ)
-	if err != nil {
-		log.Println("Execute statement error:", err)
-		return
-	}
-
-	fmt.Println("状态数据插入或更新成功！")
 }
 
 // AddDeviceToOnlineAndAll 添加设备到 onlinedevice 和 alldevice 数据库
@@ -226,20 +161,6 @@ func GetOnlineDevices() ([]string, error) {
 }
 
 // GetGPSData 获取特定设备的最新 GPS 数据
-// GetGPSData 获取特定设备的 GPS 数据
-func GetGPSData(deviceID string) (string, error) {
-	var location string
-	err := DB.QueryRow(`
-        SELECT location FROM gps_data WHERE device_id = ?
-    `, deviceID).Scan(&location)
-
-	if err != nil {
-		//log.Println("Query GPS data error:", err)
-		return "", err
-	}
-
-	return location, nil
-}
 
 func GetStatusData(deviceID string) (string, string, error) {
 	var batteryLevel, macAddress string
@@ -331,8 +252,8 @@ func DeleteFleet(fleetID string) error {
 	fmt.Println("车队删除成功！")
 	return nil
 }
-func GetFleets() ([]FleetData, error) {
-	var fleets []FleetData
+func GetFleets() ([]datastruct.FleetData, error) {
+	var fleets []datastruct.FleetData
 
 	// 编写 SQL 查询语句
 	query := `SELECT fleet_id, name, vehicles FROM fleet`
@@ -344,7 +265,7 @@ func GetFleets() ([]FleetData, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var f FleetData
+		var f datastruct.FleetData
 		var vehiclesJSON string // 用字符串接收JSON数据
 
 		err := rows.Scan(&f.ID, &f.Name, &vehiclesJSON)
@@ -370,7 +291,7 @@ func GetFleets() ([]FleetData, error) {
 
 	return fleets, nil
 }
-func SaveWarning(data WarningData) error {
+func SaveWarning(data datastruct.WarningData) error {
 	stmt, err := DB.Prepare("INSERT INTO warnings (id, type, message, level, timestamp) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
@@ -380,8 +301,8 @@ func SaveWarning(data WarningData) error {
 	_, err = stmt.Exec(data.ID, data.Type, data.Message, data.Level, data.Timestamp)
 	return err
 }
-func FetchAllWarnings() ([]WarningData, error) {
-	var warnings []WarningData
+func FetchAllWarnings() ([]datastruct.WarningData, error) {
+	var warnings []datastruct.WarningData
 	rows, err := DB.Query("SELECT id, type, message, level, timestamp FROM warnings")
 	if err != nil {
 		return nil, err
@@ -389,7 +310,7 @@ func FetchAllWarnings() ([]WarningData, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var wd WarningData
+		var wd datastruct.WarningData
 		if err := rows.Scan(&wd.ID, &wd.Type, &wd.Message, &wd.Level, &wd.Timestamp); err != nil {
 			log.Println("Failed to scan warning:", err)
 			continue
@@ -403,30 +324,4 @@ func FetchAllWarnings() ([]WarningData, error) {
 func DeleteWarningByTimestamp(timestamp string) error {
 	_, err := DB.Exec("DELETE FROM warnings WHERE timestamp = ?", timestamp)
 	return err
-}
-
-func QueryDeviceData() ([]DeviceData, error) {
-
-	// 查询数据
-	rows, err := DB.Query("SELECT device_id, location, battery_level, mac_address, speed, accelerationX, accelerationY, accelerationZ FROM status_data")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// 将查询结果转换为结构体切片
-	var devices []DeviceData
-	for rows.Next() {
-		var device DeviceData
-		err := rows.Scan(&device.DeviceID, &device.Location, &device.BatteryLevel, &device.MacAddress, &device.Speed, &device.AccelerationX, &device.AccelerationY, &device.AccelerationZ)
-		if err != nil {
-			return nil, err
-		}
-		devices = append(devices, device)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return devices, nil
 }
