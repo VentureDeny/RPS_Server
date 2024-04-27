@@ -162,31 +162,6 @@ func GetOnlineDevices() ([]string, error) {
 
 // GetGPSData 获取特定设备的最新 GPS 数据
 
-func GetStatusData(deviceID string) (string, string, error) {
-	var batteryLevel, macAddress string
-	err := DB.QueryRow(`
-        SELECT battery_level, mac_address FROM status_data WHERE device_id = ?
-    `, deviceID).Scan(&batteryLevel, &macAddress)
-
-	if err != nil {
-		log.Println("Query status data error:", err)
-		return "", "", err
-	}
-
-	return batteryLevel, macAddress, nil
-}
-
-// GetOnlineDevicesCount 获取在线设备的数量
-func GetOnlineDevicesCount() (int, error) {
-	var count int
-	err := DB.QueryRow(`SELECT COUNT(*) FROM onlinedevice`).Scan(&count)
-	if err != nil {
-		log.Printf("Error querying online devices count: %v", err)
-		return 0, err
-	}
-	return count, nil
-}
-
 func CreateFleet(name string, vehicles []string) error {
 	vehiclesJSON, err := json.Marshal(vehicles)
 	if err != nil {
